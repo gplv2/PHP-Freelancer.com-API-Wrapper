@@ -11,11 +11,14 @@ include_once('freelancer.php');
 
 // Set the Freelancer API credentials
 $credential = getCredentials($argv);
+
 $freelancer = new Freelancer($credential['key'],$credential['secret']);
+$freelancer->setDebug(1)->setVerbose(5);
+//$freelancer->setVerbose(5);
 
 // We must first make sure we are authorized before we can make any Freelancer API call
 $token = $freelancer->authorize();
-echo 'Using authorized token: '.$token."\n";
+$freelancer->debug(__METHOD__, "simple", 1 , sprintf("Using authorized token: %s", $token));
 
 // getUsersBySearch
 //$data_getUsersBySearch = $freelancer->getUsersBySearch(array('country_csv'=>'Australia'));
@@ -35,7 +38,8 @@ echo 'Using authorized token: '.$token."\n";
 
 // getAccountDetails
 $data_getAccountDetails = $freelancer->getAccountDetails();
-print_r($data_getAccountDetails);
+//print_r($data_getAccountDetails);
+$freelancer->debug(__METHOD__, "simple", 1 , print_r($data_getAccountDetails, true));
 
 // getProfileInfo
 //$data_getProfileInfo = $freelancer->getProfileInfo(array('userid'=>$data_getUsersBySearch['items'][0]['userid']));
@@ -110,8 +114,9 @@ print_r($data_getAccountDetails);
 //print_r($data_getNotification);
 
 // getNews
-//$data_getNews = $freelancer->getNews();
-//print_r($data_getNews);
+$data_getNews = $freelancer->getNews();
+$freelancer->setDebug(0)->setVerbose(0); // Put this line after the next line to see output
+$freelancer->debug(__METHOD__, "simple", 1 , print_r($data_getNews, true));
 
 // searchProjects
 //$data_searchProjects = $freelancer->searchProjects(array('istrial'=>'1'));

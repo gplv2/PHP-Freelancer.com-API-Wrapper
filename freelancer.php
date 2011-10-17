@@ -25,6 +25,7 @@
  * @copyright Nicholas de Jong
  * @license GPLv3 & Commercial Use
  * */
+
 class Freelancer {
 
     const API_TRANSPORT         = 'http';
@@ -34,8 +35,6 @@ class Freelancer {
     const OAUTH_DEBUG           = FALSE;
     const USAGE_STATS           = TRUE;
 
-    public $auth;
-
     protected $oauth;
     protected $api_base;
 
@@ -43,6 +42,10 @@ class Freelancer {
     private $consumer_secret;
 
     private $ch;
+    private $eol;
+
+    private $debug=0;
+    private $verbose=0;
 
     /**
      * Create an instance of the Freelancer class like this:-
@@ -59,7 +62,13 @@ class Freelancer {
      * @param bool $is_production (optional)
      * @param string $transport (optional)
      */
-    public function __construct($consumer_key,$consumer_secret,$is_production=FALSE,$transport=self::API_TRANSPORT) {
+    public function __construct($consumer_key, $consumer_secret, $is_production=FALSE,$transport=self::API_TRANSPORT) {
+         /* test if we are called from the CLI */
+         if (defined('STDIN')) {
+            $this->eol="\n";
+         } else {
+            $this->eol="<BR/>";
+         }
 
         // Assign the API users credentials in a place we can get at them
         $this->consumer_key = $consumer_key;
@@ -739,6 +748,7 @@ class Freelancer {
       * @return string
       */
     public function authorize($request_token=null,$token_filename=null) {
+        $this->debug(__METHOD__, "call",5);
 
         $auth = array();
 
@@ -766,7 +776,7 @@ class Freelancer {
 
         // If $request_token is not null make sure it matches $auth['oauth_token']
         if(!is_null($request_token) && $request_token != $auth['oauth_token']) {
-            echo 'ERROR: Requested token does not match returned token - check the token details are still valid in the token file'."\n";
+            $this->debug( __METHOD__, "simple", 0, sprintf("Requested token does not match returned token - check the token details are still valid in the token file"));
             die(__METHOD__);
         }
 
@@ -778,6 +788,7 @@ class Freelancer {
 
         // Return the request token that this authorization is for
         return $auth['oauth_token'];
+        $this->debug(__METHOD__, "hangup",5);
     }
 
     /***************************************************************************
@@ -795,14 +806,14 @@ class Freelancer {
 
         // Check that an authorization call has been made before we get here
         if(!isset($this->auth['timestamp'])) {
-            echo 'ERROR: Developer has not yet called authorize() before making Freelancer API calls'."\n\n";
+            $this->debug( __METHOD__, "simple", 0, sprintf("Failed to call authorize() before making Freelancer API calls."));
             die(__METHOD__);
         }
 
         try {
             $this->oauth->fetch($url,$params);
         } catch (Exception $e) {
-            echo 'ERROR: unable to perform oauth\'d fetch from :- '.$url."\n\n";
+            $this->debug( __METHOD__, "simple", 0, sprintf("Unable to perform oauth'd fetch from : - %s",$url));
             die(__METHOD__);
         }
 
@@ -838,14 +849,13 @@ class Freelancer {
     protected function getRequestTokenVerifier($request_token) {
         $call_url = $this->api_base.'/RequestAccessToken/getRequestTokenVerifier.json';
 
-        echo "\n";
         // echo 'You MUST visit the URL below to authorize the request token:-'."\n";
         // echo str_replace('api.','www.',$this->api_base).'/users/api-token/auth.php?oauth_token='.$request_token."\n\n";
         // echo 'Press ENTER when done'."\n";
         // $in = fread(STDIN,1);
 
-        echo "Fetching: " . str_replace('api.','www.',$this->api_base).'/users/api-token/auth.php?oauth_token='.$request_token."\n\n";
         $token_url = str_replace('api.','www.',$this->api_base).'/users/api-token/auth.php?oauth_token='.$request_token."\n\n";
+        $this->debug( __METHOD__, "simple", 3, sprintf("Fetching : %s",$request_token));
         $this->ch = curl_init($token_url);
 
         // set user agent
@@ -866,7 +876,7 @@ class Freelancer {
         try {
             $this->oauth->fetch($call_url,array('oauth_token'=>$request_token));
         } catch (Exception $e) {
-            echo 'ERROR: unable to authorize the request token:- '.$request_token."\n\n";
+            $this->debug( __METHOD__, "simple", 0, sprintf("Unable to authorize the request token:- %s",$request_token));
             die(__METHOD__);
         }
 
@@ -890,7 +900,7 @@ class Freelancer {
         try {
             $this->oauth->fetch($call_url,array('oauth_verifier'=>$oauth_verifier,'oauth_token'=>$request_token));
         } catch (Exception $e) {
-            echo 'ERROR: unable to establish an access token with verifier:- '.$oauth_verifier."\n\n";
+            $this->debug( __METHOD__, "simple", 0, sprintf("Unable to establish an access token with verifier :- %s", $oauth_verifier));
             die(__METHOD__);
         }
 
@@ -916,5 +926,153 @@ class Freelancer {
             } catch (Exception $e) { }
         }
     }
+
+   /**
+    * \fn function setVerbose($level)
+    * \brief switches the verbosity level
+    * \param $level: Level to switch to
+    */
+   public function setVerbose($level) {
+      $this->debug(__METHOD__, "call",2);
+      if(!isset($level)) { return $this ;}
+
+      // $args=func_get_args();
+      // $this->debug(__METHOD__, "action" , 5, "Arguments: " . print_r($args, true));
+      if ($level>=0) {
+         $this->verbose = sprintf("%d",$level);
+         // $this->debug(__METHOD__, "info",1, "Switched to verbose level " . $this->verbose);
+      } else {
+         $this->verbose = 0;
+      }
+      return $this;
+   }
+
+   /**
+    * \fn function setDebug($state = 1/0)
+    * \brief Enables or disables the internal debugger
+    * \param $state: Enable or disable the debugger
+    *
+    * This function enables or disables the extended debug information
+    * on screen. Dumps the called function and their arguments, and also
+    * their internal calls.
+    */
+   public function setDebug($state = 1) {
+      $this->debug(__METHOD__, "call",5);
+      if(!isset($state)) { return $this ;}
+
+      // $this->debug(__METHOD__, "action" , 4, print_r($args, true));
+      $args=func_get_args();
+      if ($state > 0) {
+         $this->debug = 1;
+      } else {
+         $this->debug = 0;
+      }
+
+      $this->debug(__METHOD__, "hangup",5);
+      return $this;
+   }
+
+   public function debug($func, $type="simple", $level, $message = "", $pad_me = 0) {
+      /* If the debugger is disabled, retuns without doing anything */
+      if (!$this->debug or !isset($func) or !isset($level)) {
+         return 0;
+      }
+
+      $pre="";
+
+      if (strlen($func)==0) {
+         $func="Main";
+      }
+
+      // Some make-up (type can be stdout)
+      switch($type){
+         case "call":
+            $message=""; 
+         $pre = sprintf("[%s()] - Called", $func);
+         break;
+         case "hangup":
+            $message=""; 
+         $pre = sprintf("[%s()] - Done", $func);
+         break;
+         case "simple":
+            $pre = sprintf("[%s()]", $func);
+         break;
+         default :
+            $pre = sprintf("[%s()]", $func);
+         break;
+      }
+
+      $DateTime=@date('Y-m-d H:i:s', time());
+
+      if ( $level <= $this->verbose ) {
+         $mylvl=NULL;
+         switch($level) {
+            case 0:   $mylvl ="error"; break;
+            case 1:   $mylvl ="core "; break;
+            case 2:   $mylvl ="info "; break;
+            case 3:   $mylvl ="notic"; break;
+            case 4:   $mylvl ="verbs"; break;
+            case 5:   $mylvl ="dtail"; break;
+            case 6:   $mylvl ="trace"; break;
+            default : $mylvl = $level ; break;
+         }
+
+         $nested=0;
+         if (is_array($message)) {
+            $pad_length=0;
+            foreach ($message as $key=>$val) {
+               if(!is_array($val)){
+                  $pad_length = (strlen($key) >= $pad_length) ? strlen($key) : $pad_length;
+               } else {
+                  $nested=0;
+               }
+            }
+
+            foreach ($message as $key=>$val) {
+               if (!is_array($val)) {
+                  /* does the array needs some padding */
+                  if($pad_me == 1) {
+                     $padded_eq=str_pad($key, $pad_length, ' ' ,STR_PAD_RIGHT);
+                     $key_val = sprintf("%s = %s",$padded_eq, $val);
+                  } elseif ($pad_me == 2) {
+                     $padded_key=str_pad($key, $pad_length, ' ' ,STR_PAD_LEFT);
+                     $key_val = sprintf("%s = %s",$padded_key,$val);
+                  } else {
+                     $key_val = sprintf("%s = %s",$key,$val);
+                  }
+
+                  $content = sprintf("%s:[%s]- %s %s%s", $DateTime, $mylvl, $pre, $key_val , $this->eol);
+                  if ($type == "stderr") {
+                     // or see http://dren.ch/php-print-to-stderr/ and try this below when this doesn't work for YOUR php version
+                     // $STDERR = fopen('php://stderr', 'w+');
+                     fwrite(STDERR, $content); 
+                  } else {
+                     fwrite(STDOUT, $content); 
+                  }
+               }
+            }
+         } else {
+            $lines = explode("\n", trim($message));
+            $no_lines = count($lines);
+
+            /*
+               if ($no_lines==0) {
+               fwrite(STDERR, "\n"); 
+               }
+             */
+
+            foreach ($lines as $line) {
+               $content = sprintf("%s:[%s]- %s %s%s", $DateTime, $mylvl, $pre, $line , $this->eol);
+               /* Finally we dump this to stderr or the stdout */
+               if ($type == "stderr") {
+                  fwrite(STDERR, $content); 
+               } else {
+                  fwrite(STDOUT, $content); 
+               }
+            }
+         }
+      }
+      return 1;
+   }
 }
 ?>
