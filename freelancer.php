@@ -42,6 +42,8 @@ class Freelancer {
     private $consumer_key;
     private $consumer_secret;
 
+    private $ch;
+
     /**
      * Create an instance of the Freelancer class like this:-
      * $freelancer = new Freelancer(<consumer_key>,<consumer_secret>);
@@ -837,10 +839,29 @@ class Freelancer {
         $call_url = $this->api_base.'/RequestAccessToken/getRequestTokenVerifier.json';
 
         echo "\n";
-        echo 'You MUST visit the URL below to authorize the request token:-'."\n";
-        echo str_replace('api.','www.',$this->api_base).'/users/api-token/auth.php?oauth_token='.$request_token."\n\n";
-        echo 'Press ENTER when done'."\n";
-        $in = fread(STDIN,1);
+        // echo 'You MUST visit the URL below to authorize the request token:-'."\n";
+        // echo str_replace('api.','www.',$this->api_base).'/users/api-token/auth.php?oauth_token='.$request_token."\n\n";
+        // echo 'Press ENTER when done'."\n";
+        // $in = fread(STDIN,1);
+
+        echo "Fetching: " . str_replace('api.','www.',$this->api_base).'/users/api-token/auth.php?oauth_token='.$request_token."\n\n";
+        $token_url = str_replace('api.','www.',$this->api_base).'/users/api-token/auth.php?oauth_token='.$request_token."\n\n";
+        $this->ch = curl_init($token_url);
+
+        // set user agent
+        $useragent="PHP_Curl_freelance_oauth";
+        curl_setopt($ch, CURLOPT_USERAGENT, $useragent);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER , true);
+        // curl_setopt($ch, CURLOPT_HTTPHEADER, array('HTTP_ACCEPT_LANGUAGE: UTF-8')); // request utf8 here
+
+        $server_output = curl_exec($this->ch);
+        $curlinfo = curl_getinfo($this->ch);
+
+        curl_close($this->ch);
+
+        // In case you want to post stuff
+        // $post_arr = array('blah' => $this_bar , 'booh' => $this_foo, 'time' => time(),'pid' => posix_getpid());
+        // curl_setopt($ch, CURLOPT_POSTFIELDS, $post_arr);
 
         try {
             $this->oauth->fetch($call_url,array('oauth_token'=>$request_token));
